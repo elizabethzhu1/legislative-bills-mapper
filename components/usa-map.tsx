@@ -451,13 +451,6 @@ export default function USAMap() {
             >
               <ZoomOut size={16} />
             </button>
-            <button
-              onClick={() => setZoomLevel(1)}
-              className="p-1.5 hover:bg-gray-100 rounded"
-              title="Reset Zoom"
-            >
-              <RotateCcw size={16} />
-            </button>
           </div>
         </div>
       )}
@@ -467,7 +460,7 @@ export default function USAMap() {
         <div className="mt-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">
-              {getStateName(zoomedState)} Bills
+              {getStateName(zoomedState)} Related Bills to EO
               <Badge className="ml-2" variant="outline">
                 {filteredBillsByState[zoomedState]?.length || 0} bills
               </Badge>
