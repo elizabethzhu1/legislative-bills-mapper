@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import Papa from "papaparse"
+import Papa, { ParseResult, ParseError } from "papaparse"
 
 // Define types for our bill data
 export interface Bill {
@@ -17,10 +17,22 @@ export interface Bill {
   type?: "executive" | "legislative"
   source?: string
   keywords?: string
-  sponsors?: string
+  sponsors?: Sponsor[]
   billProgress?: string
   position?: string
   [key: string]: any // Allow for flexible schema
+}
+
+export interface Sponsor {
+  legislatorID: number,
+  knowWhoPersonID: number,
+  name: string,
+  legislatorParty: string,
+  state: string,
+  primary: boolean,
+  role: string,
+  district: string,
+  bills: number[] // Only bill numbers, for clickable display
 }
 
 export interface ExecutiveOrder {
@@ -55,6 +67,8 @@ interface BillDataContextType {
   statePartyData: StatePartyData
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
+  billsWithSponsorsByState: BillsByState
+  fetchSponsorsForBill: (billId: string) => Promise<Sponsor[]>
 }
 
 // Create context
@@ -127,13 +141,14 @@ validStateCodes.add("US") // Add US for federal bills
 // Sample state party data
 const SAMPLE_STATE_PARTY_DATA: StatePartyData = {
   AL: "Republican",
-  AK: "Republican",
+  AK: "Republican", 
   AZ: "Republican",
   AR: "Republican",
   CA: "Democrat",
   CO: "Democrat",
-  CT: "Democrat",
+  CT: "Democrat", 
   DE: "Democrat",
+  DC: "Democrat",
   FL: "Republican",
   GA: "Republican",
   HI: "Democrat",
@@ -142,19 +157,19 @@ const SAMPLE_STATE_PARTY_DATA: StatePartyData = {
   IN: "Republican",
   IA: "Republican",
   KS: "Republican",
-  KY: "Republican",
+  KY: "Republican", 
   LA: "Republican",
   ME: "Democrat",
   MD: "Democrat",
   MA: "Democrat",
-  MI: "Democrat",
+  MI: "Republican",
   MN: "Democrat",
   MS: "Republican",
   MO: "Republican",
   MT: "Republican",
   NE: "Republican",
-  NV: "Democrat",
-  NH: "Republican",
+  NV: "Republican",
+  NH: "Democrat",
   NJ: "Democrat",
   NM: "Democrat",
   NY: "Democrat",
@@ -163,7 +178,7 @@ const SAMPLE_STATE_PARTY_DATA: StatePartyData = {
   OH: "Republican",
   OK: "Republican",
   OR: "Democrat",
-  PA: "Democrat",
+  PA: "Republican",
   RI: "Democrat",
   SC: "Republican",
   SD: "Republican",
@@ -171,11 +186,11 @@ const SAMPLE_STATE_PARTY_DATA: StatePartyData = {
   TX: "Republican",
   UT: "Republican",
   VT: "Democrat",
-  VA: "Republican",
+  VA: "Democrat",
   WA: "Democrat",
   WV: "Republican",
-  WI: "Democrat",
-  WY: "Republican",
+  WI: "Republican",
+  WY: "Republican"
 }
 
 export const BillDataProvider = ({ children }: BillDataProviderProps) => {
@@ -188,6 +203,7 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
   const [selectedState, setSelectedState] = useState<string | null>(null)
   const [statePartyData, setStatePartyData] = useState<StatePartyData>({})
   const [viewMode, setViewMode] = useState<ViewMode>("bills")
+  const [billsWithSponsorsByState, setBillsWithSponsorsByState] = useState<BillsByState>({})
 
   // Load state party data
   useEffect(() => {
@@ -271,19 +287,20 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
         Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
-          complete: (results) => {
+          complete: async (results: ParseResult<any>) => {
             try {
               console.log("CSV parsing complete:", results.data.length, "rows")
 
               // Process the CSV data
               const byState: BillsByState = {}
 
-              results.data.forEach((row: any) => {
+              // Process bills sequentially to avoid overwhelming the API
+              for (const row of results.data) {
                 // Extract state from the data
                 let state = row.State || ""
 
                 // Skip rows without a state
-                if (!state) return
+                if (!state) continue
 
                 // Normalize state to 2-letter code if needed
                 if (state.length > 2) {
@@ -295,7 +312,7 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
                 }
 
                 // Skip invalid states
-                if (!validStateCodes.has(state)) return
+                if (!validStateCodes.has(state)) continue
 
                 // Initialize the state array if needed
                 if (!byState[state]) {
@@ -314,13 +331,65 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
                   lastAction: row["Last Action"],
                   actionDate: row["Action Date"],
                   keywords: row.Keywords,
-                  sponsors: row.Sponsors,
+                  sponsors: row["Sponsor List"],
+                  sponsorParties: [],
                   billProgress: row["Bill Progress"],
-                  position: row.Position || "N/A"
+                  position: row.Position || "N/A",
+                  committee: row["Committee Category"],
+                  creationDate: row["Created"],
                 }
 
+                // split the sponsors string into an array
+                const sponsorsArray = row["Sponsor List"].split(",")
+                bill.sponsors = sponsorsArray
+                console.log("Bill Sponsors:", bill.sponsors)
+
+                for (const sponsor of bill.sponsors as any) {
+                  // Extract party affiliation from sponsor string (e.g., "John Smith (R)")
+                  const partyMatch = sponsor.match(/\(([RD])\)/)
+                  console.log("partyMatch:", partyMatch)
+
+                  if (partyMatch && partyMatch[1]) {
+                    if (partyMatch[1] === "R") {
+                      bill.sponsorParties.push("Republican")
+                    } else if (partyMatch[1] === "D") {
+                      bill.sponsorParties.push("Democrat")
+                    }
+                  }
+                }
+
+
+                // // Process sponsors if they exist in the CSV
+                // if (row.Sponsors) {
+                //   try {
+                //     // Handle both string and array formats
+                //     const sponsorsData = typeof row.Sponsors === 'string' 
+                //       ? JSON.parse(row.Sponsors) 
+                //       : row.Sponsors;
+
+                //     if (Array.isArray(sponsorsData)) {
+                //       bill.sponsors = sponsorsData.map(sponsor => ({
+                //         legislatorID: sponsor.legislatorID || 0,
+                //         knowWhoPersonID: sponsor.knowWhoPersonID || 0,
+                //         name: sponsor.name || 'Unknown',
+                //         legislatorParty: sponsor.legislatorParty || 'Unknown',
+                //         state: sponsor.state || row.State,
+                //         primary: sponsor.primary || false,
+                //         role: sponsor.role || 'Sponsor',
+                //         district: sponsor.district || 'Unknown',
+                //         bills: sponsor.bills || []
+                //       }));
+                //     }
+                //   } catch (e) {
+                //     console.warn(`Failed to parse sponsors for bill ${bill.billNumber}:`, e);
+                //     bill.sponsors = [];
+                //   }
+                // }
+
+                console.log("Bill:", bill)
+
                 byState[state].push(bill)
-              })
+              }
 
               console.log(`Processed bills for ${Object.keys(byState).length} states from ${billSheetFilename}`)
               setFilteredBillsByState(byState)
@@ -331,7 +400,7 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
               setLoading(false)
             }
           },
-          error: (err) => {
+          error: (err: ParseError) => {
             console.error("Error parsing CSV:", err)
             setError(`Failed to parse CSV: ${err.message}`)
             setLoading(false)
@@ -346,6 +415,44 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
 
     loadBillsForExecutiveOrder()
   }, [selectedExecutiveOrder])
+
+  // Function to fetch sponsors for a specific bill
+  const fetchSponsorsForBill = async (billId: string): Promise<Sponsor[]> => {
+    try {
+      const sponsorsRes = await fetch(`/api/get-bill-sponsors?billID=${billId}`)
+      const sponsorsData = await sponsorsRes.json()
+      let sponsors: Sponsor[] = []
+      if (Array.isArray(sponsorsData.sponsors)) {
+        sponsors = await Promise.all(sponsorsData.sponsors.map(async (sponsor: any) => {
+          let bills: number[] = []
+          try {
+            const legislatorBillsRes = await fetch(`/api/get-legislator-bills?legislatorID=${sponsor.legislatorID}`)
+            const legislatorBillsData = await legislatorBillsRes.json()
+            if (Array.isArray(legislatorBillsData.sponsoredBill)) {
+              bills = legislatorBillsData.sponsoredBill.map((b: any) => b.billID)
+            }
+          } catch (e) {
+            bills = []
+          }
+          return {
+            legislatorID: sponsor.legislatorID,
+            knowWhoPersonID: sponsor.knowWhoPersonID,
+            name: sponsor.name,
+            legislatorParty: sponsor.legislatorParty,
+            state: sponsor.state,
+            primary: sponsor.primary,
+            role: sponsor.role,
+            district: sponsor.district,
+            bills,
+          }
+        }))
+      }
+      return sponsors
+    } catch (error) {
+      console.error(`Failed to fetch sponsors for bill ${billId}:`, error)
+      return []
+    }
+  }
 
   return (
     <BillDataContext.Provider
@@ -362,6 +469,8 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
         statePartyData,
         viewMode,
         setViewMode,
+        billsWithSponsorsByState,
+        fetchSponsorsForBill,
       }}
     >
       {children}

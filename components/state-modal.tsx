@@ -5,20 +5,55 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ExternalLink, Calendar } from "lucide-react"
+import { ExternalLink, Calendar, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
 export function StateModal() {
-  const { selectedState, setSelectedState, filteredBillsByState, selectedExecutiveOrder } = useBillData()
+  const { selectedState, setSelectedState, filteredBillsByState, selectedExecutiveOrder, fetchSponsorsForBill, statePartyData } = useBillData()
   const [expandedBill, setExpandedBill] = useState<string | null>(null)
+  const [loadingSponsors, setLoadingSponsors] = useState<Record<string, boolean>>({})
+  const [billSponsors, setBillSponsors] = useState<Record<string, any[]>>({})
 
   const bills = selectedState ? filteredBillsByState[selectedState] || [] : []
   const stateName = selectedState ? getStateName(selectedState) : ""
 
+  // Calculate average days since last action
+  const calculateAverageDaysSinceLastAction = () => {
+    const billsWithDates = bills.filter(bill => bill.actionDate || bill["Action Date"])
+    if (billsWithDates.length === 0) return null
+
+    const totalDays = billsWithDates.reduce((sum, bill) => {
+      const actionDate = new Date(bill.actionDate || bill["Action Date"])
+      const today = new Date()
+      const diffTime = Math.abs(today.getTime() - actionDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      return sum + diffDays
+    }, 0)
+
+    return Math.round(totalDays / billsWithDates.length)
+  }
+
+  const averageDays = calculateAverageDaysSinceLastAction()
+
   const handleClose = () => {
     setSelectedState(null)
     setExpandedBill(null)
+    setBillSponsors({})
+  }
+
+  const handleFetchSponsors = async (billId: string) => {
+    if (billSponsors[billId]) return // Don't fetch if we already have the data
+    
+    setLoadingSponsors(prev => ({ ...prev, [billId]: true }))
+    try {
+      const sponsors = await fetchSponsorsForBill(billId)
+      setBillSponsors(prev => ({ ...prev, [billId]: sponsors }))
+    } catch (error) {
+      console.error('Failed to fetch sponsors:', error)
+    } finally {
+      setLoadingSponsors(prev => ({ ...prev, [billId]: false }))
+    }
   }
 
   const toggleBillExpansion = (billNumber: string) => {
@@ -89,11 +124,27 @@ export function StateModal() {
             <Badge className="ml-2" variant="outline">
               {bills.length} bills
             </Badge>
+            {selectedState && (
+              <Badge 
+                className={`ml-2 ${
+                  statePartyData[selectedState] === 'Democrat' 
+                    ? 'bg-blue-100 text-blue-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {statePartyData[selectedState]} Controlled
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
             {selectedExecutiveOrder
               ? `Bills related to "${selectedExecutiveOrder.title}"`
               : "All legislative bills for this state"}
+            {averageDays !== null && (
+              <div className="mt-2 text-sm">
+                Average days since last action: <span className="font-medium">{averageDays} days</span>
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -159,17 +210,23 @@ export function StateModal() {
                               </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-3 gap-14 text-sm">
                               {(bill.lastAction || bill["Last Action"]) && (
                                 <div>
                                   <h3 className="font-semibold text-muted-foreground mb-1">Last Action</h3>
-                                  <p>{bill.lastAction || bill["Last Action"]}</p>
+                                  <div>{bill.lastAction || bill["Last Action"]}</div>
                                 </div>
                               )}
                               {(bill.actionDate || bill["Action Date"]) && (
                                 <div>
                                   <h3 className="font-semibold text-muted-foreground mb-1">Action Date</h3>
-                                  <p>{formatDate(bill.actionDate || bill["Action Date"])}</p>
+                                  <div>{formatDate(bill.actionDate || bill["Action Date"])}</div>
+                                </div>
+                              )}
+                              {(bill.actionDate || bill["Action Date"]) && (
+                                <div>
+                                  <h3 className="font-semibold text-muted-foreground mb-1">Creation Date</h3>
+                                  <div>{formatDate(bill.creationDate || bill["Creation Date"])}</div>
                                 </div>
                               )}
                             </div>
@@ -177,9 +234,49 @@ export function StateModal() {
                             {bill.sponsors && (
                               <div className="mt-2">
                                 <h4 className="text-sm font-medium text-gray-500">Sponsors</h4>
-                                <p className="text-sm text-gray-900">{bill.sponsors}</p>
+                                <div className="text-sm text-gray-900">
+                                  {Array.isArray(bill.sponsors) 
+                                    ? bill.sponsors.map((sponsor, index) => (
+                                        <div key={index}>
+                                          {typeof sponsor === 'string' ? sponsor : sponsor.name}
+                                        </div>
+                                      ))
+                                    : String(bill.sponsors)}
+                                </div>
                               </div>
                             )}
+
+                            {/* {bill.sponsors && bill.sponsors.length > 0 && (
+                              <div className="mt-2">
+                                <h4 className="text-sm font-medium text-gray-500 mb-2">Sponsors</h4>
+                                <div className="space-y-2">
+                                  {bill.sponsors.map((sponsor, index) => (
+                                    <div key={index} className="bg-gray-50 p-2 rounded-md">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-medium">{sponsor.name}</span>
+                                        <span className={`text-xs px-2 py-1 rounded-full ${
+                                          sponsor.legislatorParty === 'Democrat' 
+                                            ? 'bg-blue-100 text-blue-800' 
+                                            : sponsor.legislatorParty === 'Republican'
+                                            ? 'bg-red-100 text-red-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {sponsor.legislatorParty}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs text-gray-600 mt-1">
+                                        <div>Role: {sponsor.role}</div>
+                                        <div>District: {sponsor.district}</div>
+                                        {sponsor.primary && (
+                                          <span className="text-green-600 font-medium">Primary Sponsor</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )} */}
+
                             {bill.keywords && (
                               <div className="mt-2">
                                 <h4 className="text-sm font-medium text-gray-500">Keywords</h4>
@@ -188,7 +285,7 @@ export function StateModal() {
                             )}
                           </div>
                         </CardContent>
-                        <CardFooter className="pt-0">
+                        <CardFooter className="pt-0 flex gap-2">
                           {bill.url || bill.Url ? (
                             <Button asChild variant="outline" size="sm" className="mt-2">
                               <a
@@ -205,7 +302,52 @@ export function StateModal() {
                           ) : (
                             <p className="text-sm text-muted-foreground italic">No URL available</p>
                           )}
+                          {/* <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleFetchSponsors(bill.billNumber)
+                            }}
+                            disabled={loadingSponsors[bill.billNumber]}
+                          >
+                            <Users size={16} className="mr-2" />
+                            {loadingSponsors[bill.billNumber] ? 'Loading...' : 'View Sponsors'}
+                          </Button> */}
                         </CardFooter>
+                        {/* {billSponsors[bill.billNumber] && (
+                          <CardContent className="pt-0">
+                            <div className="mt-4 border-t pt-4">
+                              <h4 className="text-sm font-medium text-gray-500 mb-2">Sponsors</h4>
+                              <div className="space-y-2">
+                                {billSponsors[bill.billNumber].map((sponsor, index) => (
+                                  <div key={index} className="bg-gray-50 p-2 rounded-md">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-medium">{sponsor.name}</span>
+                                      <span className={`text-xs px-2 py-1 rounded-full ${
+                                        sponsor.legislatorParty === 'Democrat' 
+                                          ? 'bg-blue-100 text-blue-800' 
+                                          : sponsor.legislatorParty === 'Republican'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {sponsor.legislatorParty}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-600 mt-1">
+                                      <div>Role: {sponsor.role}</div>
+                                      <div>District: {sponsor.district}</div>
+                                      {sponsor.primary && (
+                                        <span className="text-green-600 font-medium">Primary Sponsor</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </CardContent>
+                        )} */}
                       </>
                     ) : (
                       <CardContent className="pb-2">
