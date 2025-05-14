@@ -282,6 +282,16 @@ export default function USAMap() {
     }
   }
 
+  // Helper function to calculate days since last action
+  function daysSince(dateString: string | undefined): number | null {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
   if (loading) {
     return <Skeleton className="h-[400px] w-full rounded-md" />
   }
@@ -510,7 +520,15 @@ export default function USAMap() {
                   >
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{bill.billNumber || bill["Bill ID"] || "No ID"}</CardTitle>
+                        <div className="flex flex-col">
+                          <CardTitle className="text-lg">{bill.billNumber || bill["Bill ID"] || "No ID"}</CardTitle>
+                          {/* Days since last action */}
+                          {bill.actionDate || bill["Action Date"] ? (
+                            <span className="text-xs text-gray-500 mt-0.5">
+                              {daysSince(bill.actionDate || bill["Action Date"]) !== null ? `${daysSince(bill.actionDate || bill["Action Date"])} days since last action` : ""}
+                            </span>
+                          ) : null}
+                        </div>
                         {(bill.status || bill["Bill Progress"]) && (
                           <Badge className={getStatusColor(bill.status || bill["Bill Progress"])}>
                             {bill.status || bill["Bill Progress"]}
@@ -633,9 +651,9 @@ export default function USAMap() {
         </div>
       )}
 
-      {/* Horizontal legend below the map for number of bills */}
+      {/* Legend: now directly below the map with mt-2 */}
       {viewType === "bills" && (
-        <div className="flex justify-center mt-6 space-x-8 w-full">
+        <div className="flex justify-center mt-2 space-x-8 w-full">
           <div className="flex flex-row items-center space-x-8 bg-white p-4 rounded-lg shadow-lg">
             <div className="flex flex-col items-center">
               <div className="w-4 h-4 rounded-full" style={{ backgroundColor: 'rgb(173,216,230)' }}></div>
@@ -656,10 +674,8 @@ export default function USAMap() {
           </div>
         </div>
       )}
-
-      {/* Horizontal legend for support/oppose view */}
       {viewType === "position" && (
-        <div className="flex justify-center mt-6 space-x-8 w-full">
+        <div className="flex justify-center mt-2 space-x-8 w-full">
           <div className="flex flex-row items-center space-x-8 bg-white p-4 rounded-lg shadow-lg">
             <div className="flex flex-col items-center">
               <div className="w-4 h-4 rounded-full" style={{ backgroundColor: 'rgb(100,200,100)' }}></div>
@@ -676,10 +692,8 @@ export default function USAMap() {
           </div>
         </div>
       )}
-
-      {/* Horizontal legend for party control view */}
       {viewType === "party" && (
-        <div className="flex justify-center mt-6 space-x-8 w-full">
+        <div className="flex justify-center mt-2 space-x-8 w-full">
           <div className="flex flex-row items-center space-x-8 bg-white p-4 rounded-lg shadow-lg">
             <div className="flex flex-col items-center">
               <div className="w-4 h-4 rounded-full" style={{ backgroundColor: 'rgb(100,100,200)' }}></div>
