@@ -10,16 +10,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default function Home() {
   return (
     <BillDataProvider>
-      <main className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-8 text-center">US Legislative Bills Explorer</h1>
+      <main className="container mx-auto py-5 px-40 max-w-full">
+        <h1 className="text-4xl font-bold mb-10 text-center mt-10">US Legislative Bills Explorer</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4">
             <h2 className="text-xl font-semibold mb-4">Executive Orders</h2>
             <ExecutiveOrderSelector />
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>

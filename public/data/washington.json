@@ -1,0 +1,38 @@
+{
+    "state": "Washington",
+    "bill_progress": {
+      "Introduced": 0, 
+      "In Committee": 1369,
+      "Crossed Over": 148,
+      "Passed": 217,
+      "Signed/Enacted/Adopted": 335
+    },
+    "bill_sponsors": {
+      "Democrat": 943,
+      "Republican": 332,
+      "Bipartisan": 799
+    },
+    "bill_types": {
+      "Bill": 1907,
+      "Resolution": 146,
+      "Memorial": 21
+    },
+    "percent_sponsored_legislation_passed": {
+      "years": [2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+      "DEM": 27,
+      "GOP": 11,
+      "BIP": 33
+    },
+    "bills_per_committee_category": {
+      "Ag and Natural Resources": 195,
+      "Budget and Finance": 778,
+      "Business and Industry": 219,
+      "Education": 268,
+      "Government Affairs": 229,
+      "Health and Social Services": 170,
+      "Housing and Urban Affairs": 191,
+      "Justice": 176,
+      "Labor and Employment": 153,
+      "Trans and Infrastructure": 122
+    }
+  }

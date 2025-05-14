@@ -92,7 +92,7 @@ export function ExecutiveOrderSelector() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Choose an executive order from the dropdown above to see its details and related bills across states.
+              Choose an executive order from the dropdown above to view related bills across states.
             </p>
           </CardContent>
         </Card>

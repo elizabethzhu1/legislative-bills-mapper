@@ -352,11 +352,11 @@ export function StateModal() {
                     ) : (
                       <CardContent className="pb-2">
                         {bill.aiSummary || bill["AI Summary"] || bill.summary || bill.Summary ? (
-                          <p className="text-sm line-clamp-2">
+                          <span className="text-sm line-clamp-2 block">
                             {bill.aiSummary || bill["AI Summary"] || bill.summary || bill.Summary}
-                          </p>
+                          </span>
                         ) : (
-                          <p className="text-sm text-muted-foreground italic">No summary available</p>
+                          <span className="text-sm text-muted-foreground italic block">No summary available</span>
                         )}
 
                         {(bill.lastAction || bill["Last Action"]) && (

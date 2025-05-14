@@ -284,7 +284,7 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
         const csvText = await response.text()
 
         // Parse the CSV data
-        Papa.parse(csvText, {
+        Papa.parse(csvText as any, {
           header: true,
           skipEmptyLines: true,
           complete: async (results: ParseResult<any>) => {
@@ -337,6 +337,7 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
                   position: row.Position || "N/A",
                   committee: row["Committee Category"],
                   creationDate: row["Created"],
+                  districts: []
                 }
 
                 // split the sponsors string into an array
@@ -356,6 +357,26 @@ export const BillDataProvider = ({ children }: BillDataProviderProps) => {
                       bill.sponsorParties.push("Democrat")
                     }
                   }
+
+                  // Get the congressional district for the sponsor
+                  // try {
+                  //   const districtRes = await fetch(`/api/get-sponsor-district?name=${encodeURIComponent(sponsor.trim())}`)
+                  //   if (!districtRes.ok) {
+                  //     console.warn(`Failed to get district for sponsor ${sponsor}:`, await districtRes.text())
+                  //     bill.districts.push(null)
+                  //     continue
+                  //   }
+                  //   const districtData = await districtRes.json()
+                  //   if (districtData.error) {
+                  //     console.warn(`Error getting district for sponsor ${sponsor}:`, districtData.error)
+                  //     bill.districts.push(null)
+                  //   } else {
+                  //     bill.districts.push(districtData.district)
+                  //   }
+                  // } catch (err) {
+                  //   console.error(`Error fetching district for sponsor ${sponsor}:`, err)
+                  //   bill.districts.push(null)
+                  // }
                 }
 
 
